@@ -1,0 +1,26 @@
+{
+    "retry": {
+        "max_retries": 3,
+        "initial_backoff": 1,
+        "max_backoff": 30
+    },
+    "timeout": {
+        "default_task_timeout": 300,
+        "max_task_timeout": 3600
+    },
+    "circuit_breaker": {
+        "failure_threshold": 5,
+        "timeout_seconds": 60,
+        "success_threshold": 2
+    },
+    "cost_limits": {
+        "max_cost_per_task": 10.0,
+        "max_cost_per_hour": 100.0,
+        "alert_threshold": 50.0
+    },
+    "memory": {
+        "context_refresh_interval": 20,
+        "max_conversation_history": 50,
+        "force_system_prompt_reload": true
+    }
+}

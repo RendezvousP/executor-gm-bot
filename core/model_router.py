@@ -7,6 +7,10 @@ import random
 import logging
 from pathlib import Path
 from datetime import datetime
+import time
+import random
+
+from .circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 from enum import Enum
 from typing import Optional, List, Dict
 
@@ -60,7 +64,20 @@ class ModelRouter:
     
     def __init__(self, config_path: Path):
         self.config_path = config_path
-        self.keys = self._load_keys()
+        self.keys_config = self._load_keys()
+        self.keys = self.keys_config.get("keys", [])
+        
+        # Initialize Circuit Breaker
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=5,
+            timeout=60,
+            success_threshold=2
+        )
+        
+        # Retry config
+        self.MAX_RETRIES = 3
+        self.INITIAL_BACKOFF = 1
+        self.MAX_BACKOFF = 30
         self.key_usage = {}  # Track usage per key
         self.current_key_index = 0
         
@@ -71,8 +88,8 @@ class ModelRouter:
         if self.config_path.exists():
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data.get("keys", [])
-        return []
+                return data
+        return {"keys": []}
     
     def _save_keys(self):
         """Save API keys to config."""
@@ -152,68 +169,136 @@ class ModelRouter:
         selected_model = random.choice(suitable_models)
         return self._get_model_with_key(selected_model)
     
-    def select_with_fallback(self, preferred_model: str, fallback_chain: Optional[List[str]] = None) -> Dict:
+    def select_with_fallback(
+        self, 
+        preferred_model: str, 
+        fallback_chain: Optional[List[str]] = None,
+        max_retries: Optional[int] = None
+    ) -> Dict:
         """
-        Select model with automatic fallback if unavailable.
+        Select model with automatic fallback, retry logic, and circuit breaker.
         
-        Use this when you need guaranteed availability (e.g., critical operations).
+        Use this when you need guaranteed availability.
         
         Args:
             preferred_model: The preferred model to try first
             fallback_chain: List of fallback models (optional)
+            max_retries: Max retries per model (default: self.MAX_RETRIES)
         
         Returns:
-            Dict with model info and key
-        
-        Raises:
-            AllModelsUnavailableError: If all models in chain fail
+            Dict with model name and API key
         """
-        if not fallback_chain:
-            fallback_chain = [
-                preferred_model,
-                "claude-4.5-sonnet",  # Stable alternative
-                "gemini-3-pro",       # Fast, cheap
-                "opencode-claude",    # Free tier
-            ]
+        max_retries = max_retries or self.MAX_RETRIES
+        backoff = self.INITIAL_BACKOFF
         
-        for model_name in fallback_chain:
+        # 1. Try preferred model with retries
+        for attempt in range(max_retries):
             try:
-                result = self._get_model_with_key(model_name)
-                if model_name != preferred_model:
-                    logger.warning(
-                        f"⚠️ {preferred_model} unavailable, using {model_name} instead"
-                    )
+                result = self._get_model_with_key(preferred_model)
+                if attempt > 0:
+                    logger.info(f"✅ {preferred_model} recovered on attempt {attempt + 1}")
                 return result
             except Exception as e:
-                logger.warning(f"{model_name} failed: {e}, trying next...")
-                continue
+                # Log warning but continue
+                logger.warning(f"⚠️ {preferred_model} failed (attempt {attempt + 1}/{max_retries}): {e}")
+                
+                # Check directly if circuit is open to skip retries
+                if isinstance(e, CircuitBreakerOpenError):
+                    break
+                    
+                if attempt < max_retries - 1:
+                    sleep_time = backoff + random.uniform(0, 1)  # Add jitter
+                    time.sleep(sleep_time)
+                    backoff = min(backoff * 2, self.MAX_BACKOFF)
         
-        raise Exception(f"All models in fallback chain failed: {fallback_chain}")
-    
-    def _get_model_with_key(self, model_name: str) -> Dict:
-        """Get model info with an available API key."""
-        model_info = self.MODELS.get(model_name, {})
-        provider = model_info.get("provider", "unknown")
+        logger.error(f"❌ {preferred_model} failed after retries. Initiating fallback.")
         
-        # Find key for this provider
-        key = self._get_next_key(provider)
+        # 2. Try explicit fallback chain
+        if fallback_chain:
+            for fallback_model in fallback_chain:
+                try:
+                    logger.info(f"🔄 Trying fallback: {fallback_model}")
+                    return self._get_model_with_key(fallback_model)
+                except Exception as e:
+                    logger.warning(f"   Fallback {fallback_model} failed: {e}")
+                    continue
         
-        # SECURITY: Mask API key for logging (show only preview)
-        if key and len(key) > 12:
-            key_preview = key[:8] + "..." + key[-4:]
-        else:
-            key_preview = "***"
-        
+        # 3. Ultimate Fallback: OpenCode (Free Tier)
+        logger.warning("⚠️ All primary and fallback models failed. Defaulting to OpenCode.")
         return {
-            "model": model_name,
-            "provider": provider,
-            "tier": model_info.get("tier", ModelTier.STANDARD).value,
-            "api_key": key,  # Full key (for internal use ONLY)
-            "api_key_preview": key_preview,  # Masked (for logs/responses)
+            "model": "opencode-claude",
+            "provider": "opencode",
+            "tier": ModelTier.FREE,
+            "api_key": None,
             "requires_approval": False
         }
     
-    def _get_next_key(self, provider: str) -> Optional[str]:
+    def _validate_model_availability(self, model: str) -> bool:
+        """Check if model is available via circuit breaker state."""
+        # Simple check, real logic handled in call wrapper
+        return True
+
+    def _get_model_with_key(self, model_name: str) -> Dict:
+        """
+        Get model details with a valid API key.
+        Wrapped with Circuit Breaker protection.
+        """
+        model_info = self.MODELS.get(model_name, {})
+        provider = model_info.get("provider")
+        tier = model_info.get("tier")
+        
+        if not provider:
+            raise ValueError(f"Unknown model: {model_name}")
+            
+        def _get_key_logic(prov, t):
+            # Allow FREE tier without keys
+            if t == ModelTier.FREE:
+                return {
+                    "model": model_name,
+                    "provider": prov,
+                    "tier": t,
+                    "api_key": None,
+                    "api_key_preview": "***",
+                    "requires_approval": False
+                }
+            
+            # Find key for provider
+            key_entry = self._select_key_for_provider(prov)
+            if not key_entry:
+                # If no key found for paid tier, try fallback to free
+                if t != ModelTier.FREE:
+                    logger.warning(f"No key for {model_name}, trying free fallback")
+                    return self._get_model_with_key("opencode-claude") # Recursive call
+                raise ValueError(f"No API key available for {prov} ({t})")
+            
+            # SECURITY: Mask API key for logging (show only preview)
+            key_preview = key_entry["key"]
+            if key_preview and len(key_preview) > 12:
+                key_preview = key_preview[:8] + "..." + key_preview[-4:]
+            else:
+                key_preview = "***"
+                
+            return {
+                "model": model_name,
+                "provider": prov,
+                "tier": t,
+                "api_key": key_entry["key"],
+                "api_key_preview": key_preview,
+                "requires_approval": False # This should be False unless it's a critical model
+            }
+
+        # Execute with Circuit Breaker
+        try:
+            return self.circuit_breaker.call(
+                f"provider_{provider}",
+                _get_key_logic,
+                provider, tier
+            )
+        except CircuitBreakerOpenError as e:
+            logger.warning(f"🔌 Circuit OPEN for {provider}: {e}")
+            raise  # Re-raise to trigger fallback logic
+    
+    def _select_key_for_provider(self, provider: str) -> Optional[Dict]:
         """Get next available key for provider using round-robin."""
         provider_keys = [k for k in self.keys if k.get("provider") == provider]
         

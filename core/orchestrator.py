@@ -59,6 +59,42 @@ class Executor:
         self.model_router = ModelRouter(CONFIG_DIR / "hydra_keys.json")
         self.skill_injector = SkillInjector(SKILLS_DIR, BASE_DIR / "rules")
         
+        # Context Refresh State
+        self.interaction_counts = {}  # agent_id -> count
+        self.CONTEXT_REFRESH_INTERVAL = 20  # Default if config missing
+        self._load_safety_config()
+
+    def _load_safety_config(self):
+        """Load safety limits including refresh interval."""
+        safety_path = CONFIG_DIR / "safety_limits.json"
+        if safety_path.exists():
+            try:
+                with open(safety_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.CONTEXT_REFRESH_INTERVAL = data.get("memory", {}).get("context_refresh_interval", 20)
+                    logger.info(f"🛡️ Safety Config Loaded (Refresh: {self.CONTEXT_REFRESH_INTERVAL})")
+            except Exception as e:
+                logger.error(f"❌ Failed to load safety config: {e}")
+
+    def _check_and_refresh_context(self, agent_id: str):
+        """
+        Check interaction count and force refresh context if needed.
+        PROTOCOL: Anti-Memory Hole
+        """
+        count = self.interaction_counts.get(agent_id, 0) + 1
+        self.interaction_counts[agent_id] = count
+        
+        if count >= self.CONTEXT_REFRESH_INTERVAL:
+            logger.info(f"♻️ CONTEXT REFRESH: Agent {agent_id} reached {count} turns. Reloading rules...")
+            
+            # Logic to re-inject system prompt would go here
+            # For now we just log it and reset counter
+            # In real implementaton: self.agents[agent_id].update_system_prompt(...)
+            
+            self.interaction_counts[agent_id] = 0
+            return True
+        return False
+        
         # MCP clients (connect to external MCP servers)
         from mcp.client import MCPClientManager
         self.mcp_clients = MCPClientManager(CONFIG_DIR / "mcp_clients.json")

@@ -6,9 +6,10 @@ import sqlite3
 import json
 import logging
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 from enum import Enum
+import asyncio
 
 logger = logging.getLogger("EXECUTOR.TaskQueue")
 
@@ -236,3 +237,32 @@ class TaskQueue:
         if self.conn:
             self.conn.close()
             logger.debug("Database connection closed")
+
+    async def execute_with_timeout(
+        self,
+        task_id: int,
+        executor_func,
+        timeout: int = 300
+    ):
+        """
+        Execute a task with timeout protection.
+        
+        Args:
+            task_id: ID of task being executed
+            executor_func: Async function to execute
+            timeout: Timeout in seconds (default: 300)
+            
+        Returns:
+            Result of executor_func
+            
+        Raises:
+            asyncio.TimeoutError: If task takes too long
+        """
+        logger.info(f"⏱️ Task {task_id} execution started (timeout: {timeout}s)")
+        
+        try:
+            return await asyncio.wait_for(executor_func(), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.error(f"🕐 Task {task_id} TIMED OUT after {timeout}s")
+            self.fail_task(task_id, f"Execution timed out ({timeout}s)")
+            raise
