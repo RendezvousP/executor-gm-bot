@@ -126,25 +126,64 @@ Example:
 
 ## Hardware Requirements
 
-### Minimum
-- **CPU**: 4 cores (Intel i5 / AMD Ryzen 5)
-- **RAM**: 8 GB
-- **Storage**: 10 GB SSD
-- **OS**: Windows 10+, Linux, macOS
-- **Network**: Internet connection for AI APIs
+### Minimum (Low-End PC/Laptop)
+- **CPU**: 2 cores @ 2.0 GHz (Intel i3 / AMD Ryzen 3 / ARM64)
+- **RAM**: 4 GB
+- **Storage**: 5 GB free space (HDD acceptable)
+- **OS**: Windows 10+, Linux (Ubuntu 20.04+), macOS 11+
+- **Network**: Internet connection for AI API calls
 
-### Recommended
-- **CPU**: 8 cores (Intel i7 / AMD Ryzen 7)
-- **RAM**: 16 GB
-- **Storage**: 50 GB SSD
-- **OS**: Windows 11 / Ubuntu 22.04+
-- **Network**: Stable broadband (100+ Mbps)
+> **Note**: Runs fine on Raspberry Pi 4 (4GB model)
 
-### For Production (Managing 10+ Agents)
-- **CPU**: 12+ cores (Intel i9 / AMD Ryzen 9 / Xeon)
-- **RAM**: 32 GB
-- **Storage**: 100 GB NVMe SSD
+### Recommended (Smooth Operation)
+- **CPU**: 4-8 cores (Intel i5 / AMD Ryzen 5)
+- **RAM**: 8-16 GB
+- **Storage**: 20 GB SSD
+- **OS**: Windows 11 / Ubuntu 22.04+ / macOS 12+
+- **Network**: Stable broadband (50+ Mbps)
+
+### Production (Managing 10+ Agents)
+- **CPU**: 8-12 cores (Intel i7 / AMD Ryzen 7)
+- **RAM**: 16-32 GB
+- **Storage**: 50-100 GB NVMe SSD
 - **Network**: Gigabit Ethernet / Fiber
+
+---
+
+## MCP Integration (Optional)
+
+**EXECUTOR works standalone** without any MCP connections. MCP clients are **completely optional**.
+
+**When to enable MCP clients:**
+- ✅ Connect to external skill servers (e.g., antigravity, if available)
+- ✅ Integrate with third-party services (e.g., opencode)
+- ✅ Extend capabilities with remote tools
+
+**Standalone mode** (default):
+- Uses 11 bundled skills from local cache
+- No external MCP dependencies
+- Works offline for core orchestration
+
+**To enable MCP clients** (optional):
+1. Edit `config/mcp_clients.json`
+2. Set `"enabled": true` for desired servers
+3. Ensure server URLs are accessible
+4. Restart EXECUTOR
+
+**Example**: Connect to antigravity skill server:
+```json
+{
+  "clients": [
+    {
+      "name": "antigravity",
+      "url": "http://localhost:5000/mcp",
+      "enabled": true
+    }
+  ]
+}
+```
+
+EXECUTOR will work with or without this connection.
 
 ---
 
