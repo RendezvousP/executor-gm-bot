@@ -25,7 +25,7 @@ logger = logging.getLogger("EXECUTOR")
 BASE_DIR = Path(__file__).parent.parent  # Go up from core/ to executor/
 CONFIG_DIR = BASE_DIR / "config"
 STATE_DIR = BASE_DIR / "state"
-SKILLS_DIR = BASE_DIR / "skills"
+SKILLS_DIR = BASE_DIR / "skills" / "cache"  # Updated: use local cache
 
 class Executor:
     """

@@ -1,0 +1,27 @@
+{
+    "sources": [
+        {
+            "name": "antigravity",
+            "type": "mcp",
+            "url": "http://localhost:5000/mcp",
+            "enabled": false,
+            "description": "Antigravity Skill Server (MCP)"
+        },
+        {
+            "name": "antigravity-git",
+            "type": "git",
+            "url": "https://github.com/RendezvousP/antigravity",
+            "path": "skills",
+            "enabled": false,
+            "description": "Git sync from Antigravity repo"
+        }
+    ],
+    "cache_dir": "skills/cache",
+    "auto_sync": false,
+    "essential_skills": [
+        "systematic-debugging",
+        "writing-plans",
+        "mcp-builder",
+        "metagpt-sop"
+    ]
+}
