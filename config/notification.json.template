@@ -1,0 +1,11 @@
+{
+  "telegram": {
+    "enabled": false,
+    "bot_token": "PLACEHOLDER_TELEGRAM_BOT_TOKEN",
+    "chat_id": "PLACEHOLDER_CHAT_ID"
+  },
+  "discord": {
+    "enabled": false,
+    "webhook_url": "PLACEHOLDER_DISCORD_WEBHOOK_URL"
+  }
+}

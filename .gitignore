@@ -6,6 +6,7 @@ state/
 # Config with secrets
 config/hydra_keys.json
 config/notification.json
+config/mcp_clients.json
 
 # Python
 __pycache__/

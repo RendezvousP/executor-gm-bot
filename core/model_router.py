@@ -198,11 +198,18 @@ class ModelRouter:
         # Find key for this provider
         key = self._get_next_key(provider)
         
+        # SECURITY: Mask API key for logging (show only preview)
+        if key and len(key) > 12:
+            key_preview = key[:8] + "..." + key[-4:]
+        else:
+            key_preview = "***"
+        
         return {
             "model": model_name,
             "provider": provider,
             "tier": model_info.get("tier", ModelTier.STANDARD).value,
-            "api_key": key,
+            "api_key": key,  # Full key (for internal use ONLY)
+            "api_key_preview": key_preview,  # Masked (for logs/responses)
             "requires_approval": False
         }
     

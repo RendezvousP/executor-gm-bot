@@ -1,0 +1,6 @@
+{
+  "keys": [],
+  "rotation_strategy": "round_robin",
+  "fallback": "opencode",
+  "last_updated": null
+}
