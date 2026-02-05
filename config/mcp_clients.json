@@ -1,0 +1,16 @@
+{
+    "clients": [
+        {
+            "name": "antigravity",
+            "url": "http://localhost:5000/mcp",
+            "enabled": false,
+            "description": "Connect to Antigravity MCP server for skills (if available)"
+        },
+        {
+            "name": "opencode",
+            "url": "https://api.opencode.dev/mcp",
+            "enabled": false,
+            "description": "Connect to OpenCode MCP server (if available)"
+        }
+    ]
+}
