@@ -1,14 +1,14 @@
 # EXECUTOR ARCHITECTURE
 
 > **Version**: 1.0  
-> **Project**: EXECUTOR GM BOT - General Manager for Antigravity Fleet  
+> **Type**: Multi-Agent Orchestration System  
 > **Date**: 2026-02-05
 
 ---
 
 ## 1. SYSTEM OVERVIEW
 
-EXECUTOR (General Manager Bot) is the central orchestrator for the Antigravity Fleet Multi-Agent System. It manages infrastructure agents, project agents, and handles all coordination, skill inheritance, and model routing.
+EXECUTOR (General Manager Bot) is a central orchestrator for multi-agent systems. It manages infrastructure agents, project agents, and handles all coordination, skill inheritance, and model routing.
 
 ```mermaid
 graph TB

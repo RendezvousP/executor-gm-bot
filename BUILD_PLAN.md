@@ -21,7 +21,7 @@
 ### ⏳ Missing (CRITICAL)
 
 1. **MCP Server** - External comms interface
-2. **MCP Client** - Connect to Antigravity/OpenCode
+2. **MCP Client** - Connect to external MCP servers (optional)
 3. **Config Validation** - Prevent startup with bad config
 4. **Graceful Shutdown** - Save state on SIGTERM
 
@@ -91,9 +91,9 @@ async def select_model(
 
 ## 🔌 PART 2: MCP CLIENT (EXECUTOR AS CLIENT)
 
-EXECUTOR connects TO other MCP servers:
-- **Antigravity skills** (if exposed as MCP)
-- **OpenCode** (if available)
+EXECUTOR connects TO other MCP servers (optional):
+- **External skill servers** (if exposed as MCP)
+- **Third-party services** (if available)
 
 ---
 

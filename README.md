@@ -10,16 +10,16 @@
 ```
 
 > **Named after Darth Vader's flagship - The Super Star Destroyer "Executor"**  
-> **Project**: Antigravity Fleet - Central Orchestrator  
+> **Type**: Multi-Agent Orchestration System  
 > **Version**: 1.0.0  
-> **Location**: `C:\Users\Admin\.gemini\executor`
+> **License**: MIT
 
 ---
 
 ## Overview
 
-EXECUTOR is the **Central Orchestrator** of the Antigravity Fleet Multi-Agent System.  
-It runs on a **separate LOCAL PC** (not inside Proxmox) and manages all other agents.
+EXECUTOR is a **General Manager Bot** for orchestrating multi-agent systems.  
+It coordinates agents, manages skills, routes AI models, and handles task distribution.
 
 *"The Executor does not ask for permission. It executes the will of Lord Vader."*
 
@@ -31,7 +31,7 @@ It runs on a **separate LOCAL PC** (not inside Proxmox) and manages all other ag
 4. **Power Recovery**: Scan and report system status after outage
 5. **Escalation**: Ask User when critical decisions needed
 6. **MCP Server**: Expose EXECUTOR functionality to external systems
-7. **MCP Client**: Connect to external MCP servers (Antigravity, OpenCode)
+7. **MCP Client**: Connect to external MCP servers (optional)
 
 ## Project Structure
 
@@ -54,7 +54,7 @@ executor/
 │   ├── current_step.json
 │   ├── task_queue.db
 │   └── logs/
-├── skills/                  # Link to antigravity skills
+├── skills/cache/            # Bundled skills (11 included)
 └── main.py                  # Entry point
 ```
 
@@ -63,7 +63,7 @@ executor/
 ### Run EXECUTOR (Standard Mode)
 
 ```bash
-cd C:\Users\Admin\.gemini\executor
+cd /path/to/executor
 python main.py
 ```
 
@@ -103,7 +103,7 @@ See `config/` directory for:
 
 ### MCP Client Configuration
 
-To connect EXECUTOR to external MCP servers (e.g., Antigravity, OpenCode):
+To connect EXECUTOR to external MCP servers (optional feature):
 
 1. Edit `config/mcp_clients.json`
 2. Set `"enabled": true` for the servers you want
@@ -114,18 +114,37 @@ Example:
 {
   "clients": [
     {
-      "name": "antigravity",
+      "name": "external_server",
       "url": "http://localhost:5000/mcp",
-      "enabled": true
+      "enabled": false
     }
   ]
 }
 ```
 
-## Related Documents
+> **Note**: MCP clients are **optional**. EXECUTOR works standalone without external servers.
 
-- [Implementation Plan](../antigravity/brain/ec88c086-1378-4193-931c-cbbbc3db2538/implementation_plan.md)
-- [Project Agents Architecture](../antigravity/brain/ec88c086-1378-4193-931c-cbbbc3db2538/project_agents_architecture.md)
+## Hardware Requirements
+
+### Minimum
+- **CPU**: 4 cores (Intel i5 / AMD Ryzen 5)
+- **RAM**: 8 GB
+- **Storage**: 10 GB SSD
+- **OS**: Windows 10+, Linux, macOS
+- **Network**: Internet connection for AI APIs
+
+### Recommended
+- **CPU**: 8 cores (Intel i7 / AMD Ryzen 7)
+- **RAM**: 16 GB
+- **Storage**: 50 GB SSD
+- **OS**: Windows 11 / Ubuntu 22.04+
+- **Network**: Stable broadband (100+ Mbps)
+
+### For Production (Managing 10+ Agents)
+- **CPU**: 12+ cores (Intel i9 / AMD Ryzen 9 / Xeon)
+- **RAM**: 32 GB
+- **Storage**: 100 GB NVMe SSD
+- **Network**: Gigabit Ethernet / Fiber
 
 ---
 
