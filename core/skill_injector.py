@@ -12,12 +12,23 @@ logger = logging.getLogger("EXECUTOR.SkillInjector")
 class SkillInjector:
     """
     Skill Inheritance Engine.
-    
+
     EXECUTOR (GM BOT) inherits ALL skills.
     Child agents receive a subset based on their role.
     """
-    
-    # Role to skills mapping
+
+    # Role to Category mapping (Dynamic Injection)
+    ROLE_CATEGORIES = {
+        "pm_agent": ["product-management", "marketing", "writing"],
+        "architect_agent": ["architecture", "database", "system-design"],
+        "coder_agent": ["frontend", "backend", "testing", "security", "git"],
+        "qa_agent": ["testing", "qa", "automation"],
+        "network_agent": ["networking", "security", "sysadmin"],
+        "proxmox_agent": ["devops", "infrastructure", "sysadmin"],
+        "deep_search_agent": ["research", "analysis"],
+    }
+
+    # Legacy hardcoded skills (Keep for fallback/critical overrides)
     ROLE_SKILLS = {
         "pm_agent": [
             "openspec",
@@ -48,7 +59,6 @@ class SkillInjector:
         ],
         "network_agent": [
             "systematic-debugging",
-            # mikrotik_architect is custom, loaded separately
         ],
         "proxmox_agent": [
             "mcp-builder",
@@ -59,12 +69,12 @@ class SkillInjector:
             "writing-clearly-and-concisely",
         ],
     }
-    
+
     # Core rules that ALL agents must follow
     CORE_RULES = [
         "CORE_PROTOCOL.md",
     ]
-    
+
     # Additional rules per role
     ROLE_RULES = {
         "pm_agent": ["metagpt-sop"],
@@ -75,14 +85,27 @@ class SkillInjector:
         "proxmox_agent": [],
         "deep_search_agent": [],
     }
-    
+
     def __init__(self, skills_dir: Path, rules_dir: Path):
         self.skills_dir = skills_dir
         self.rules_dir = rules_dir
+        self.registry = self._load_registry()
         self.available_skills = self._scan_skills()
-        
-        logger.info(f"💉 Skill Injector initialized with {len(self.available_skills)} skills")
-    
+
+        logger.info(f"💉 Skill Injector initialized with {len(self.available_skills)} skills from {len(self.registry)} registry entries")
+
+    def _load_registry(self) -> List[Dict]:
+        """Load skill registry if available."""
+        registry_path = self.skills_dir / "skill_registry.json"
+        if registry_path.exists():
+            try:
+                with open(registry_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get("skills", [])
+            except Exception as e:
+                logger.error(f"Failed to load registry: {e}")
+        return []
+
     def _scan_skills(self) -> List[str]:
         """Scan available skills in skills directory."""
         skills = []
@@ -91,26 +114,33 @@ class SkillInjector:
                 if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
                     skills.append(skill_dir.name)
         return skills
-    
+
     def get_skills_for_role(self, role: str) -> List[str]:
-        """Get list of skills for a given role."""
-        required_skills = self.ROLE_SKILLS.get(role, [])
-        
-        # Filter to only available skills
-        available = [s for s in required_skills if s in self.available_skills]
-        missing = [s for s in required_skills if s not in self.available_skills]
-        
+        """Get list of skills for a given role (Dynamic + Static)."""
+        # 1. Start with hardcoded critical skills
+        selected_skills = set(self.ROLE_SKILLS.get(role, []))
+
+        # 2. Dynamic Injection from Registry based on Category
+        target_categories = self.ROLE_CATEGORIES.get(role, [])
+        for skill in self.registry:
+            if skill.get("category") in target_categories:
+                selected_skills.add(skill.get("name"))
+
+        # 3. Filter to only available skills (files exist)
+        available = [s for s in selected_skills if s in self.available_skills]
+
+        missing = [s for s in self.ROLE_SKILLS.get(role, []) if s not in available]
         if missing:
-            logger.warning(f"⚠️ Missing skills for {role}: {missing}")
-        
-        return available
-    
+            logger.warning(f"⚠️ Missing critical skills for {role}: {missing}")
+
+        return sorted(list(available))
+
     def get_rules_for_role(self, role: str) -> List[str]:
         """Get list of rules for a given role."""
         rules = self.CORE_RULES.copy()
         rules.extend(self.ROLE_RULES.get(role, []))
         return rules
-    
+
     def load_skill_content(self, skill_name: str) -> Optional[str]:
         """Load content of a skill file."""
         skill_path = self.skills_dir / skill_name / "SKILL.md"
@@ -118,7 +148,7 @@ class SkillInjector:
             with open(skill_path, 'r', encoding='utf-8') as f:
                 return f.read()
         return None
-    
+
     def load_rule_content(self, rule_name: str) -> Optional[str]:
         """Load content of a rule file."""
         rule_path = self.rules_dir / rule_name
@@ -126,11 +156,11 @@ class SkillInjector:
             with open(rule_path, 'r', encoding='utf-8') as f:
                 return f.read()
         return None
-    
+
     def generate_system_prompt(self, role: str, project_context: str = "") -> str:
         """
         Generate complete system prompt for an agent.
-        
+
         Includes:
         1. Role-specific skills
         2. Core rules (CORE_PROTOCOL)
@@ -138,11 +168,11 @@ class SkillInjector:
         4. Project context
         """
         prompt_parts = []
-        
+
         # Header
         prompt_parts.append(f"# AGENT ROLE: {role.upper()}")
         prompt_parts.append("")
-        
+
         # Core Rules
         prompt_parts.append("## CORE RULES (MANDATORY)")
         for rule in self.CORE_RULES:
@@ -150,7 +180,7 @@ class SkillInjector:
             if content:
                 prompt_parts.append(content)
         prompt_parts.append("")
-        
+
         # Role-specific rules
         role_rules = self.ROLE_RULES.get(role, [])
         if role_rules:
@@ -161,7 +191,7 @@ class SkillInjector:
                     prompt_parts.append(f"### {rule}")
                     prompt_parts.append(content)
         prompt_parts.append("")
-        
+
         # Skills
         prompt_parts.append("## SKILLS")
         for skill in self.get_skills_for_role(role):
@@ -171,27 +201,27 @@ class SkillInjector:
                 # Only include the first 500 chars to avoid token bloat
                 prompt_parts.append(content[:500] + "..." if len(content) > 500 else content)
         prompt_parts.append("")
-        
+
         # Project context
         if project_context:
             prompt_parts.append("## PROJECT CONTEXT")
             prompt_parts.append(project_context)
-        
+
         return "\n".join(prompt_parts)
-    
+
     def inject_to_agent(self, agent_config: Dict, role: str, project_context: str = "") -> Dict:
         """
         Inject skills and rules into agent configuration.
-        
+
         Returns updated agent config with system_prompt.
         """
         system_prompt = self.generate_system_prompt(role, project_context)
-        
+
         agent_config["system_prompt"] = system_prompt
         agent_config["skills"] = self.get_skills_for_role(role)
         agent_config["rules"] = self.get_rules_for_role(role)
         agent_config["role"] = role
-        
+
         logger.info(f"💉 Injected {len(agent_config['skills'])} skills into {role}")
-        
+
         return agent_config
